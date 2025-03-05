@@ -1,6 +1,6 @@
 import pandas as pd
 from binance.client import Client
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 client = Client("", "")
@@ -22,7 +22,7 @@ def atr(df: pd.DataFrame, length: int = 14) -> pd.Series:
     return atr_
 
 
-def price_atr_percent(coin: str):
+def price_atr_percent(coin: str, only_atr=False):
     coin = coin.upper()
     try:
         klines = client.get_historical_klines(
@@ -42,9 +42,32 @@ def price_atr_percent(coin: str):
 
         current_price = data["close"].iloc[-1]
         current_atr = atr_values.iloc[-1]
+
+        if only_atr:
+            return round(current_atr / current_price * 100, 2)
+
         return f"{coin} {round(current_atr / current_price * 100, 2)}% ATR"
-    else:
+    elif not only_atr:
         return f"Немає руху ціни {coin} для обрахунку ATR"
+
+
+def get_top_atr():
+    exchange_info = client.get_exchange_info()
+    usdt_pairs = [s['baseAsset'] for s in exchange_info['symbols'] if s['quoteAsset'] == 'USDT']
+
+    atr_list = []
+    for pair in usdt_pairs[:50]:
+        pair_price_atr = price_atr_percent(pair, only_atr=True)
+        if pair_price_atr:
+            atr_list.append({'coin': pair, 'percent': pair_price_atr})
+
+    return sorted(atr_list, key=lambda x: x["percent"], reverse=True)[:10]
+
+
+@app.route("/get-top-atr", methods=["GET"])
+def get_top_atr_api():
+    data = get_top_atr()
+    return jsonify(data)
 
 
 @app.route('/', methods=['GET', 'POST'])
