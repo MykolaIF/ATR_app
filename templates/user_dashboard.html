@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Analyzer</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/x-icon">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/user_styles.css') }}">
     <script defer src="{{ url_for('static', filename='script.js') }}"></script>
 </head>
 <body>
     <div class="container">
         <h2>Обрахунок ATR</h2>
-        <form method="post">
+        <form action="{{ url_for('user_dashboard.user_dashboard') }}" method="post">
             <input type="text" name="coin" placeholder="Введіть назву монети" required>
             <button type="submit">Отримати результат</button>
         </form>
@@ -22,7 +22,7 @@
         {% endif %}
     </div>
 
-    <!-- Додатковий блок для майбутньої інформації -->
+    <!-- Додатковий блок для TOP-10 ATR -->
     <div class="info-container">
         <h2>TOP-10 ATR </h2>
         <div class="info-content" id="info-content">
@@ -31,5 +31,7 @@
         <div id="loading" class="hidden">Завантаження... <span id="timer">0</span> сек</div>
         <button id="fetch-data">Отримати топ 10</button>
     </div>
+
+    <a href="{{ url_for('logout') }}">Logout</a>
 </body>
 </html>

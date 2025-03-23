@@ -1,4 +1,7 @@
 pandas
 flask
+flask-login
+flask-bcrypt
+flask-sqlalchemy
 gunicorn
 python-binance
