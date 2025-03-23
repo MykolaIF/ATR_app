@@ -1,83 +1,91 @@
-import pandas as pd
-from binance.client import Client
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, redirect, url_for, request, flash
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from user_dashboard import user_bp
+from admin_dashboard import admin_bp
 
 app = Flask(__name__)
-client = Client("", "")
-LENGTH = 14
-TIME_FRAME = Client.KLINE_INTERVAL_1HOUR
-TIME_START = f"{LENGTH * 60} minutes ago UTC"
+app.secret_key = 'my1very2secret3key#'  # Змініть на реальний секретний ключ
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # Шлях до бази даних
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Ініціалізація SQLAlchemy
+db = SQLAlchemy(app)
+
+# Ініціалізація Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 
-def rma(s: pd.Series, period: int) -> pd.Series:
-    return s.ewm(alpha=1 / period).mean()
+# Модель користувача
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(20), nullable=False)
 
 
-def atr(df: pd.DataFrame, length: int = 14) -> pd.Series:
-    high, low, prev_close = df['high'], df['low'], df['close'].shift()
-    tr_all = [high - low, high - prev_close, low - prev_close]
-    tr_all = [tr.abs() for tr in tr_all]
-    tr = pd.concat(tr_all, axis=1).max(axis=1)
-    atr_ = rma(tr, length)
-    return atr_
+# Функція для завантаження користувача
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
 
 
-def price_atr_percent(coin: str, only_atr=False):
-    coin = coin.upper()
-    try:
-        klines = client.get_historical_klines(
-            f"{coin}USDT",
-            TIME_FRAME,
-            TIME_START
-        )
-    except:
-        return f"Монети {coin} немає"
-
-    data = pd.DataFrame(klines, columns=["timestamp", "open", "high", "low", "close", "volume",
-                                         "close_time", "quote_asset_volume", "number_of_trades",
-                                         "taker_buy_base", "taker_buy_quote", "ignore"])
-    data = data[["high", "low", "close"]].astype(float)
-    if len(data) > 0:
-        atr_values = atr(data, length=LENGTH)
-
-        current_price = data["close"].iloc[-1]
-        current_atr = atr_values.iloc[-1]
-
-        if only_atr:
-            return round(current_atr / current_price * 100, 2)
-
-        return f"{coin} {round(current_atr / current_price * 100, 2)}% ATR"
-    elif not only_atr:
-        return f"Немає руху ціни {coin} для обрахунку ATR"
+# Реєстрація Blueprint для user_dashboard
+app.register_blueprint(user_bp, url_prefix='/user')
+app.register_blueprint(admin_bp, url_prefix='/admin')
 
 
-def get_top_atr():
-    exchange_info = client.get_exchange_info()
-    usdt_pairs = [s['baseAsset'] for s in exchange_info['symbols'] if s['quoteAsset'] == 'USDT']
-
-    atr_list = []
-    for pair in usdt_pairs[:50]:
-        pair_price_atr = price_atr_percent(pair, only_atr=True)
-        if pair_price_atr:
-            atr_list.append({'coin': pair, 'percent': pair_price_atr})
-
-    return sorted(atr_list, key=lambda x: x["percent"], reverse=True)[:10]
+# Головна сторінка
+@app.route('/')
+def home():
+    return redirect(url_for('login'))
 
 
-@app.route("/get-top-atr", methods=["GET"])
-def get_top_atr_api():
-    data = get_top_atr()
-    return jsonify(data)
-
-
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    result = ""
+# Сторінка авторизації
+@app.route('/login', methods=['GET', 'POST'])
+def login():
     if request.method == 'POST':
-        coin = request.form.get('coin', '')
-        result = price_atr_percent(coin)
-    return render_template('index.html', result=result)
+        username = request.form['username']
+        password = request.form['password']
+
+        user = User.query.filter_by(username=username).first()
+
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            # flash('Ви успішно увійшли!', 'success')
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Невірний логін або пароль', 'error')
+
+    return render_template('login.html')
+
+
+# Сторінка dashboard
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    if current_user.role == 'admin':
+        return redirect(url_for('admin_dashboard.admin_dashboard'))
+    elif current_user.role == 'user':
+        return redirect(url_for('user_dashboard.user_dashboard'))
+    else:
+        return redirect(url_for('login'))
+
+
+# Вихід
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    # flash('Ви вийшли з системи', 'success')
+    return redirect(url_for('login'))
 
 
 if __name__ == '__main__':
+    # Створення бази даних (якщо вона ще не існує)
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)

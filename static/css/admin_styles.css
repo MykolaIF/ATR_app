@@ -1,0 +1,40 @@
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+.container {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    width: 80%;
+    max-width: 300px;
+    margin: 10px auto;
+}
+.order {
+    font-family: 'JetBrains Mono';
+    font-size: 14px;
+    white-space: pre;
+    padding: 5px 0;
+}
+.order.buy {
+    color: #0f0;  /* Зелений */
+}
+.order.sell {
+    color: #FF6262;  /* Червоний */
+}
+.divider {
+    margin: 10px 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+}
+21.03, 21:34:23 BUY  2.4066 - 239

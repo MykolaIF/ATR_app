@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 1000);
 
         try {
-            const response = await fetch("/get-top-atr");
+            const response = await fetch("/user/get-top-atr");
             const data = await response.json();
 
             // Оновлення вмісту
